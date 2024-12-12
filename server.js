@@ -92,6 +92,24 @@ server.post('/user/register', (req, res) => {
     });
 });
 
+server.delete('/user', (req, res) => {
+    const name = req.body.name;
+    const email = req.body.email;
+    const password = req.body.password;
+
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+        if (err) {
+            return res.status(500).send('error hashing password');
+        }
+        db.run(`INSERT INTO USER (NAME, EMAIL, PASSWORD, ISADMIN) VALUES (?, ?, ?, ?)`, [name, email, hashedPassword, 0], (err) => {
+            if (err) {
+                return res.status(401).send(err);
+            }
+            return res.status(200).send('Registration successful');
+        });
+    });
+});
+
 // Add a stock item (Admin only)
 server.post('/stock/add', verifyToken, (req, res) => {
     const isAdmin = req.userDetails.isAdmin;
