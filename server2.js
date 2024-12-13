@@ -27,7 +27,6 @@ const generateToken = (id, role) => {
     return jwt.sign({ id, role }, secret_key, { expiresIn: '1h' });
 }
 
-
 // Middleware to verify token and extract role
 const verifyRole = (requiredRoles) => (req, res, next) => {
     const token = req.cookies.authToken;
@@ -44,64 +43,69 @@ const verifyRole = (requiredRoles) => (req, res, next) => {
     });
 };
 
-const adminEMAIL= 'fayrouz@gmail.com'
-const adminPASSWORD= bcrypt.hashSync('Fayrouz', 10);
-
+const adminEMAIL = 'fayrouz@gmail.com';
+const adminPASSWORD = bcrypt.hashSync('Fayrouz', 10);
 
 // Admin login
 server.post('/admin/login', (req, res) => {
-    const {EMAIL, PASSWORD} = req.body;
-    if (EMAIL == adminEMAIL){
+    const { EMAIL, PASSWORD } = req.body;
+    if (EMAIL === adminEMAIL) {
         bcrypt.compare(PASSWORD, adminPASSWORD, (err, isMatch) => {
             if (err) {
-                return res.status(500).send('error comparing password');
+                console.error('Error comparing password:', err);
+                return res.status(500).send('Error comparing password');
             }
             if (!isMatch) {
-                return res.status(401).send('invalid credentials');
-            } 
+                return res.status(401).send('Invalid credentials');
+            }
+
             const token = generateToken(1, 'admin');
 
             res.cookie('authToken', token, {
                 httpOnly: true,
                 sameSite: 'none',
-                secure: true, 
-                expiresIn: '1h' 
+                secure: process.env.NODE_ENV === 'production',
+                expiresIn: '1h'
             });
-    
+
             return res.status(200).json({ id: 1, role: 'admin' });
-         });
-    
-    } 
-        
+        });
+    }
 });
 
-server.post('/supplier/login', (req,res) => {   
+// Supplier login
+server.post('/supplier/login', (req, res) => {
     console.log('Raw body:', req.body);
-    const {email, password} = req.body;
+    const { email, password } = req.body;
 
-    if (!email || !password ) {
+    if (!email || !password) {
         return res.status(400).send('All fields are required');
     }
+
     db.get(`SELECT * FROM SUPPLIER WHERE EMAIL=?`, [email], (err, row) => {
         if (err) {
-            return res.status(500).send('error fetching supplier');
+            console.error('Database query error:', err);
+            return res.status(500).send('Error fetching supplier');
         }
         if (!row) {
-            return res.status(401).send('invalid credentials');
+            return res.status(401).send('Invalid credentials');
         }
+
         bcrypt.compare(password, row.PASSWORD, (err, isMatch) => {
             if (err) {
-                return res.status(500).send('error comparing password');
+                console.error('Error comparing password:', err);
+                return res.status(500).send('Error comparing password');
             }
             if (!isMatch) {
-                return res.status(401).send('invalid credentials');
+                return res.status(401).send('Invalid credentials');
             }
-            const token = generateToken(row.ID, 'supplier'); 
+
+            const token = generateToken(row.ID, 'supplier');
 
             res.cookie('authToken', token, {
                 httpOnly: true,
                 sameSite: 'none',
-                secure: true,
+                secure: process.env.NODE_ENV === 'production',
                 expiresIn: '1h'
             });
 
@@ -110,38 +114,42 @@ server.post('/supplier/login', (req,res) => {
     });
 });
 
-//Manufacturer login
-server.post('/manufacturer/login', (req,res) => {   
-    const email = req.body.email;
-    const password = req.body.password;
+// Manufacturer login
+server.post('/manufacturer/login', (req, res) => {
+    const { email, password } = req.body;
+
     db.get(`SELECT * FROM MANUFACTURER WHERE EMAIL=?`, [email], (err, row) => {
         if (err) {
-            return res.status(500).send('error fetching supplier');
+            console.error('Database query error:', err);
+            return res.status(500).send('Error fetching manufacturer');
         }
         if (!row) {
-            return res.status(401).send('invalid credentials');
+            return res.status(401).send('Invalid credentials');
         }
+
         bcrypt.compare(password, row.PASSWORD, (err, isMatch) => {
             if (err) {
-                return res.status(500).send('error comparing password');
+                console.error('Error comparing password:', err);
+                return res.status(500).send('Error comparing password');
             }
             if (!isMatch) {
-                return res.status(401).send('invalid credentials');
+                return res.status(401).send('Invalid credentials');
             }
 
             const token = generateToken(row.ID, 'manufacturer');
             res.cookie('authToken', token, {
                 httpOnly: true,
                 sameSite: 'none',
-                secure: true,
+                secure: process.env.NODE_ENV === 'production',
                 expiresIn: '1h'
             });
-            return res.status(200).json({ id: row.ID, role: 'manufacturer'});
+
+            return res.status(200).json({ id: row.ID, role: 'manufacturer' });
         });
     });
 });
 
-
+// Supplier registration
 server.post('/supplier/register', (req, res) => {
     const { name, email, password, contact_info } = req.body;
 
@@ -178,7 +186,6 @@ server.post('/supplier/register', (req, res) => {
         });
     });
 });
-
 
 // Manufacturer registration
 server.post('/manufacturer/register', (req, res) => {
@@ -218,13 +225,12 @@ server.post('/manufacturer/register', (req, res) => {
     });
 });
 
-
 // View all stock
-server.get('/stock',  verifyRole(['admin']), (req, res) => {
-
+server.get('/stock', verifyRole(['admin']), (req, res) => {
     const query = `SELECT * FROM STOCK`;
     db.all(query, (err, rows) => {
         if (err) {
+            console.error('Error fetching stock:', err);
             return res.status(500).send('Error fetching stock');
         }
         return res.json(rows);
@@ -240,6 +246,7 @@ server.get('/stock/search', (req, res) => {
 
     db.all(query, (err, rows) => {
         if (err) {
+            console.error('Error searching stock:', err);
             return res.status(500).send('Error searching stock');
         }
         return res.json(rows);
@@ -252,8 +259,8 @@ server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
     if (!name || !category || !quantity || !price || !supplierId) {
         return res.status(400).send('Missing required fields');
     }
-    console.log("cant add stock")
-    const query = `INSERT INTO STOCK (NAME, CATEGORY,QUANTITY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?, ?)`;
+
+    const query = `INSERT INTO STOCK (NAME, CATEGORY, QUANTITY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?, ?)`;
     db.run(query, [name, category, quantity, description, price, supplierId], (err) => {
         if (err) {
             console.error('Error adding stock:', err);
@@ -263,7 +270,7 @@ server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
     });
 });
 
-// Create a cart 
+// Create a cart
 server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
     const { stockId, manufacturerId, quantity } = req.body;
 
@@ -271,7 +278,7 @@ server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, re
         return res.status(400).send('Missing required fields');
     }
 
-    const orderDate = new Date().toISOString().split('T')[0]; 
+    const orderDate = new Date().toISOString().split('T')[0];
 
     const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
     db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
@@ -283,71 +290,26 @@ server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, re
     });
 });
 
+// Checkout
+server.post('/checkout', verifyRole(['supplier', 'manufacturer']), (req, res) => {
+    const { manufacturerId, totalPrice } = req.body;
+    if (!manufacturerId || !totalPrice) {
+        return res.status(400).send('Missing required fields');
+    }
 
-
-server.post('/checkout', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
-    const userId = req.userDetails.id;
-
-    const cartQuery = `SELECT CART.ID as CART_ID, STOCK.ID as STOCK_ID, STOCK.NAME, STOCK.PRICE, CART.QUANTITY 
-                       FROM CART 
-                       INNER JOIN STOCK ON CART.STOCK_ID = STOCK.ID
-                       WHERE CART.USER_ID = ?`;
-
-    db.all(cartQuery, [userId], (err, cartItems) => {
+    const query = `UPDATE CART SET STATUS = 'completed' WHERE MANUFACTURER_ID = ?`;
+    db.run(query, [manufacturerId], (err) => {
         if (err) {
-            console.error('Error retrieving cart items:', err);
-            return res.status(500).send('Error retrieving cart items');
+            console.error('Error completing checkout:', err);
+            return res.status(500).send('Error completing checkout');
         }
-
-        if (cartItems.length === 0) {
-            return res.status(400).send('Cart is empty');
-        }
-
-        const totalAmount = cartItems.reduce((sum, item) => sum + item.PRICE * item.QUANTITY, 0);
-        const orderDate = new Date().toISOString();
-
-     
-        const orderQuery = `INSERT INTO ORDERS (USER_ID, TOTAL_AMOUNT, ORDER_DATE) VALUES (?, ?, ?)`;
-        db.run(orderQuery, [userId, totalAmount, orderDate], function (err) {
-            if (err) {
-                console.error('Error creating order:', err);
-                return res.status(500).send('Error creating order');
-            }
-
-            const orderId = this.lastID; 
-
-            const orderItemsQuery = `INSERT INTO ORDER_ITEMS (ORDER_ID, STOCK_ID, QUANTITY, PRICE) VALUES (?, ?, ?, ?)`;
-            const orderItemsData = cartItems.map(item => [orderId, item.STOCK_ID, item.QUANTITY, item.PRICE]);
-
-            const placeholders = orderItemsData.map(() => '(?, ?, ?, ?)').join(',');
-            const flatValues = orderItemsData.flat();
-
-            db.run(`INSERT INTO ORDER_ITEMS VALUES ${placeholders}`, flatValues, (err) => {
-                if (err) {
-                    console.error('Error inserting order items:', err);
-                    return res.status(500).send('Error adding items to order');
-                }
-
-                const clearCartQuery = `DELETE FROM CART WHERE USER_ID = ?`;
-                db.run(clearCartQuery, [userId], (err) => {
-                    if (err) {
-                        console.error('Error clearing cart:', err);
-                        return res.status(500).send('Error clearing cart');
-                    }
-                    res.status(201).send('Order placed successfully');
-                });
-            });
-        });
+        return res.send('Checkout completed');
     });
 });
 
+server.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 
-
-
-
-// Server startup
-server.listen(port,'0.0.0.0', () => {
-    console.log(`Server started at port ${port}`);
     db.serialize(() => {
         db.run(db_access.createSupplierTable, (err) => {
             if (err) console.log("Error creating supplier table: " + err);

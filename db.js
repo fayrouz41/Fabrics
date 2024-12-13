@@ -1,5 +1,5 @@
 const sqlite = require('sqlite3');
-const db = new sqlite.Database('dbtables.db');
+const db = new sqlite.Database('dbtables1.db');
 
 
 const createSupplierTable = `CREATE TABLE IF NOT EXISTS SUPPLIER (
@@ -39,4 +39,23 @@ FOREIGN KEY (STOCK_ID) REFERENCES STOCK(ID),
 FOREIGN KEY (MANUFACTURER_ID) REFERENCES MANUFACTURER(ID)
 )`;
 
-module.exports = { db, createSupplierTable, createManufacturerTable, createStockTable, createCartTable };
+const createOrdersTable = `CREATE TABLE IF NOT EXISTS ORDERS (
+ID INTEGER PRIMARY KEY AUTOINCREMENT,
+USER_ID INT NOT NULL,
+TOTAL_AMOUNT REAL NOT NULL,
+ORDER_DATE TEXT NOT NULL,
+FOREIGN KEY (USER_ID) REFERENCES SUPPLIER(ID) ON DELETE CASCADE
+)`;
+
+const createOrderItemsTable = `CREATE TABLE IF NOT EXISTS ORDER_ITEMS (
+ID INTEGER PRIMARY KEY AUTOINCREMENT,
+ORDER_ID INT NOT NULL,
+STOCK_ID INT NOT NULL,
+QUANTITY INT NOT NULL,
+PRICE REAL NOT NULL,
+FOREIGN KEY (ORDER_ID) REFERENCES ORDERS(ID) ON DELETE CASCADE,
+FOREIGN KEY (STOCK_ID) REFERENCES STOCK(ID)
+)`;
+
+
+module.exports = { db, createSupplierTable, createManufacturerTable, createStockTable, createCartTable, createOrdersTable, createOrderItemsTable };
