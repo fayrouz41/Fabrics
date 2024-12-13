@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import '../styles/register.css';
+import '../styles/login.css';
 
-const RegistrationPage = () => {
+const LoginPage = () => {
     const [formData, setFormData] = useState({
-        name: '',
         email: '',
         password: '',
-        contact_info: '',
         userType: 'manufacturer', // Default to manufacturer
     });
     const [errorMessage, setErrorMessage] = useState('');
     const [loading, setLoading] = useState(false);
-    const [successMessage, setSuccessMessage] = useState('');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -33,53 +30,45 @@ const RegistrationPage = () => {
         e.preventDefault();
         setLoading(true);
         setErrorMessage('');
-        setSuccessMessage('');
-
-        // Form Validation
-        if (!formData.name || !formData.email || !formData.password || !formData.contact_info) {
-            setErrorMessage('All fields are required!');
+    
+        // Form validation
+        if (!formData.email || !formData.password) {
+            setErrorMessage('Both email and password are required!');
             setLoading(false);
             return;
         }
-
+    
         try {
-            const url = `http://localhost:3999/${formData.userType}/register`;
-            const response = await axios.post(url, formData);
-
-            if (response.status === 201) {
-                setSuccessMessage('Registration successful!');
-                setFormData({
-                    name: '',
-                    email: '',
-                    password: '',
-                    contact_info: '',
-                    userType: 'manufacturer', // Reset to manufacturer by default
-                });
+            const url = `http://localhost:3999/${formData.userType}/login`;
+            const response = await axios.post(
+                url,
+                {
+                    email: formData.email,
+                    password: formData.password,
+                },
+                {
+                    withCredentials: true, // Send cookies to backend
+                }
+            );
+    
+            if (response.status === 200) {
+                alert(`${formData.userType} login successful!`);
+                // Add redirection logic if needed
             }
         } catch (error) {
-            console.error('Error during registration:', error);  // Log the error details
-            setErrorMessage(error.response?.data || 'An error occurred. Please try again.');
-                
+            console.error('Login error:', error);
+            setErrorMessage(
+                error.response?.data || 'An error occurred during login. Please try again.'
+            );
         } finally {
             setLoading(false);
         }
     };
-
+    
     return (
-        <div className="registration-container">
-            <h2>{formData.userType === 'supplier' ? 'Supplier Registration' : 'Manufacturer Registration'}</h2>
-            <form onSubmit={handleSubmit} className="registration-form">
-                <div className="form-group">
-                    <label htmlFor="name">Name</label>
-                    <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                    />
-                </div>
+        <div className="login-container">
+            <h2>{formData.userType === 'supplier' ? 'Supplier Login' : formData.userType === 'admin' ? 'Admin Login' : 'Manufacturer Login'}</h2>
+            <form onSubmit={handleSubmit} className="login-form">
                 <div className="form-group">
                     <label htmlFor="email">Email</label>
                     <input
@@ -102,20 +91,19 @@ const RegistrationPage = () => {
                         required
                     />
                 </div>
-                <div className="form-group">
-                    <label htmlFor="contact_info">Contact Information</label>
-                    <input
-                        type="text"
-                        id="contact_info"
-                        name="contact_info"
-                        value={formData.contact_info}
-                        onChange={handleChange}
-                        required
-                    />
-                </div>
 
                 <div className="form-group user-type-group">
-                    <label>Register as:</label>
+                    <label>Login as:</label>
+                    <label>
+                        <input
+                            type="radio"
+                            name="userType"
+                            value="admin"
+                            checked={formData.userType === 'admin'}
+                            onChange={handleUserTypeChange}
+                        />
+                        Admin
+                    </label>
                     <label>
                         <input
                             type="radio"
@@ -139,13 +127,12 @@ const RegistrationPage = () => {
                 </div>
 
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
-                {successMessage && <div className="success-message">{successMessage}</div>}
                 <button type="submit" disabled={loading}>
-                    {loading ? 'Registering...' : 'Register'}
+                    {loading ? 'Logging in...' : 'Login'}
                 </button>
             </form>
         </div>
     );
 };
 
-export default RegistrationPage;
+export default LoginPage;

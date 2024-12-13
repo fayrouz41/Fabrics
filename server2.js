@@ -11,7 +11,8 @@ const port = 3999;
 const secret_key = 'hjgsdiuwesdhudwejdhdfha';
 
 server.use(cors({
-    origin: "http://localhost:3999",
+    origin: "http://localhost:3000",
+    methods: ['GET','POST', 'DELETE'],
     credentials: true
 }));
 
@@ -48,15 +49,20 @@ const adminPASSWORD = bcrypt.hashSync('Fayrouz', 10);
 
 // Admin login
 server.post('/admin/login', (req, res) => {
-    const { EMAIL, PASSWORD } = req.body;
-    if (EMAIL === adminEMAIL) {
-        bcrypt.compare(PASSWORD, adminPASSWORD, (err, isMatch) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json('Email and password are required.');
+    }
+
+    if (email === adminEMAIL) {
+        bcrypt.compare(password, adminPASSWORD, (err, isMatch) => {
             if (err) {
                 console.error('Error comparing password:', err);
-                return res.status(500).send('Error comparing password');
+                return res.status(500).send('Error comparing password.');
             }
             if (!isMatch) {
-                return res.status(401).send('Invalid credentials');
+                return res.status(401).send('Invalid credentials.');
             }
 
             const token = generateToken(1, 'admin');
@@ -65,13 +71,48 @@ server.post('/admin/login', (req, res) => {
                 httpOnly: true,
                 sameSite: 'none',
                 secure: process.env.NODE_ENV === 'production',
-                expiresIn: '1h'
+                maxAge: 3600000, // 1 hour
             });
 
             return res.status(200).json({ id: 1, role: 'admin' });
         });
+    } else {
+        return res.status(401).json('Invalid credentials.');
     }
 });
+
+
+
+
+// const adminEMAIL = 'fayrouz@gmail.com';
+// const adminPASSWORD = bcrypt.hashSync('Fayrouz', 10);
+
+// // Admin login
+// server.post('/admin/login', (req, res) => {
+//     const { EMAIL, PASSWORD } = req.body;
+//     if (EMAIL === adminEMAIL) {
+//         bcrypt.compare(PASSWORD, adminPASSWORD, (err, isMatch) => {
+//             if (err) {
+//                 console.error('Error comparing password:', err);
+//                 return res.status(500).send('Error comparing password');
+//             }
+//             if (!isMatch) {
+//                 return res.status(401).send('Invalid credentials');
+//             }
+
+//             const token = generateToken(1, 'admin');
+
+//             res.cookie('authToken', token, {
+//                 httpOnly: true,
+//                 sameSite: 'none',
+//                 secure: process.env.NODE_ENV === 'production',
+//                 expiresIn: '1h'
+//             });
+
+//             return res.status(200).json({ id: 1, role: 'admin' });
+//         });
+//     }
+// });
 
 // Supplier login
 server.post('/supplier/login', (req, res) => {
