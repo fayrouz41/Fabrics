@@ -23,8 +23,8 @@ server.get('/', (req, res) => {
 });
 
 // Generate JWT token
-const generateToken = (id, isAuthorized) => {
-    return jwt.sign({ id, isAuthorized }, secret_key, { expiresIn: '1h' });
+const generateToken = (id, role) => {
+    return jwt.sign({ id, role }, secret_key, { expiresIn: '1h' });
 }
 
 
@@ -37,22 +37,20 @@ const verifyRole = (requiredRoles) => (req, res, next) => {
         if (err) return res.status(403).send('Invalid or expired token');
 
         req.userDetails = decoded;
-        const { role } = decoded;
-        if (!requiredRoles.includes(role)) {
+        if (!requiredRoles.includes(decoded.role)) {
             return res.status(403).send('Forbidden: Insufficient permissions');
         }
         next();
     });
 };
 
-const adminEMAIL= 'fayrouz@gmail,com'
+const adminEMAIL= 'fayrouz@gmail.com'
 const adminPASSWORD= bcrypt.hashSync('Fayrouz', 10);
 
 
 // Admin login
 server.post('/admin/login', (req, res) => {
-    const EMAIL = req.body.EMAIL;
-    const PASSWORD = req.body.PASSWORD;
+    const {EMAIL, PASSWORD} = req.body;
     if (EMAIL == adminEMAIL){
         bcrypt.compare(PASSWORD, adminPASSWORD, (err, isMatch) => {
             if (err) {
@@ -61,19 +59,22 @@ server.post('/admin/login', (req, res) => {
             if (!isMatch) {
                 return res.status(401).send('invalid credentials');
             } 
-            const token = generateToken(1, 'mainADMIN');
+            const token = generateToken(1, 'admin');
 
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'none',
-                secure: true,
-                expiresIn: '1h'
+                sameSite: 'strict',
+                secure: true, 
+                expiresIn: '1h' 
             });
-            return res.status(200).json({ id: 1, details:'mainADMIN'});
-         })
-    }; 
+    
+            return res.status(200).json({ id: 1, role: 'admin' });
+         });
+        } else {
+            res.status(401).send('Invalid credentials');  
+    } 
         
-})
+});
 
 server.post('/supplier/login', (req,res) => {   
     const email = req.body.email;
@@ -92,17 +93,16 @@ server.post('/supplier/login', (req,res) => {
             if (!isMatch) {
                 return res.status(401).send('invalid credentials');
             }
-            let userID = row.ID;
-            let isAdmin = row.ISADMIN;
-            const token = generateToken(userID, isAdmin);
+            const token = generateToken(row.ID, 'supplier'); 
 
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'none',
+                sameSite: 'strict',
                 secure: true,
                 expiresIn: '1h'
             });
-            return res.status(200).json({ id: userID, admin: isAdmin });
+
+            return res.status(200).json({ id: row.ID, role: 'supplier' });
         });
     });
 });
@@ -125,18 +125,24 @@ server.post('/manufacturer/login', (req,res) => {
             if (!isMatch) {
                 return res.status(401).send('invalid credentials');
             }
-            let userID = row.ID;
-            let isAdmin = row.ISADMIN;
-            const token = generateToken(userID, isAdmin);
 
+            const token = generateToken(row.ID, 'manufacturer');
             res.cookie('authToken', token, {
                 httpOnly: true,
                 sameSite: 'none',
                 secure: true,
                 expiresIn: '1h'
             });
-            return res.status(200).json({ id: userID, admin: isAdmin });
+            return res.status(200).json({ id: row.ID, role: 'manufacturer'});
         });
+    });
+});
+
+server.get('/stock', verifyRole(['admin']), (req, res) => {
+    const query = `SELECT * FROM STOCK`;
+    db.all(query, (err, rows) => {
+        if (err) return res.status(500).send('Error fetching stock');
+        return res.json(rows);
     });
 });
 
@@ -177,27 +183,8 @@ server.post('/manufacturer/register', (req, res) => {
     });
 });
 
-
-// Add a stock item (Admin only)
-server.post('/stock/add', verifyToken, (req, res) => {
-    const isAdmin = req.userDetails.isAdmin;
-    if (isAdmin !== 1) return res.status(403).send('You are not an admin');
-
-    const { name, category, description, price, supplierId } = req.body;
-
-    const query = `INSERT INTO STOCK (NAME, CATEGORY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?)`;
-    db.run(query, [name, category, description, price, supplierId], (err) => {
-        if (err) {
-            return res.status(500).send('Error adding stock item');
-        }
-        return res.send('Stock item added successfully');
-    });
-});
-
 // View all stock
-server.get('/stock', verifyToken, (req, res) => {
-    const isAdmin = req.userDetails.isAdmin;
-    if (isAdmin !== 1) return res.status(403).send('You are not an admin');
+server.get('/stock',  verifyRole(['admin']), (req, res) => {
 
     const query = `SELECT * FROM STOCK`;
     db.all(query, (err, rows) => {
@@ -223,10 +210,26 @@ server.get('/stock/search', (req, res) => {
     });
 });
 
-// Create a cart (Assuming this is done by a user)
-server.post('/cart', verifyToken, (req, res) => {
-    const userID = req.userDetails.id;
-    const { stockId, manufacturerId, quantity, orderDate } = req.body;
+// Admin or Supplier can add stock
+server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
+    const { name, category, description, price, supplierId } = req.body;
+
+    if (!name || !category || !price || !supplierId) {
+        return res.status(400).send('Missing required fields');
+    }
+
+    const query = `INSERT INTO STOCK (NAME, CATEGORY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?)`;
+    db.run(query, [name, category, description, price, supplierId], (err) => {
+        if (err) {
+            console.error('Error adding stock:', err);
+            return res.status(500).send('Error adding stock item');
+        }
+        return res.send('Stock item added successfully');
+    });
+});
+
+// Create a cart 
+server.post('/cart',  verifyRole(['admin', 'supplier', 'manufaturer']), (req, res) => {
 
     const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
     db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
