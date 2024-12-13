@@ -141,13 +141,6 @@ server.post('/manufacturer/login', (req,res) => {
     });
 });
 
-server.get('/stock', verifyRole(['admin']), (req, res) => {
-    const query = `SELECT * FROM STOCK`;
-    db.all(query, (err, rows) => {
-        if (err) return res.status(500).send('Error fetching stock');
-        return res.json(rows);
-    });
-});
 
 server.post('/supplier/register', (req, res) => {
     const { name, email, password, contact_info } = req.body;
@@ -189,22 +182,42 @@ server.post('/supplier/register', (req, res) => {
 
 // Manufacturer registration
 server.post('/manufacturer/register', (req, res) => {
-    const name = req.body.name;
-    const email = req.body.email;
-    const password = req.body.password;
+    const { name, email, password, contact_info } = req.body;
 
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
+    if (!name || !email || !password || !contact_info) {
+        return res.status(400).send('All fields are required');
+    }
+
+    db.get(`SELECT EMAIL FROM MANUFACTURER WHERE EMAIL = ?`, [email], (err, row) => {
         if (err) {
-            return res.status(500).send('error hashing password');
+            console.error('Database error:', err);
+            return res.status(500).send('Database error');
         }
-        db.run(`INSERT INTO MANUFACTURER (NAME, EMAIL, PASSWORD, ISADMIN) VALUES (?, ?, ?, ?)`, [name, email, hashedPassword, 0], (err) => {
+        if (row) {
+            return res.status(400).send('Email already in use');
+        }
+
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
             if (err) {
-                return res.status(401).send(err);
+                console.error('Error hashing password:', err);
+                return res.status(500).send('Error hashing password');
             }
-            return res.status(200).send('Registration successful');
+
+            db.run(
+                `INSERT INTO MANUFACTURER (NAME, EMAIL, PASSWORD, CONTACT_INFO) VALUES (?, ?, ?, ?)`,
+                [name, email, hashedPassword, contact_info],
+                (err) => {
+                    if (err) {
+                        console.error('Error inserting manufacturer:', err);
+                        return res.status(500).send('Database constraint violation');
+                    }
+                    return res.status(201).send('Registration successful');
+                }
+            );
         });
     });
 });
+
 
 // View all stock
 server.get('/stock',  verifyRole(['admin']), (req, res) => {
@@ -235,14 +248,13 @@ server.get('/stock/search', (req, res) => {
 
 // Admin or Supplier can add stock
 server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
-    const { name, category, description, price, supplierId } = req.body;
-
-    if (!name || !category || !price || !supplierId) {
+    const { name, category, quantity, description, price, supplierId } = req.body;
+    if (!name || !category || !quantity || !price || !supplierId) {
         return res.status(400).send('Missing required fields');
     }
-
-    const query = `INSERT INTO STOCK (NAME, CATEGORY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?)`;
-    db.run(query, [name, category, description, price, supplierId], (err) => {
+    console.log("cant add stock")
+    const query = `INSERT INTO STOCK (NAME, CATEGORY,QUANTITY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?, ?)`;
+    db.run(query, [name, category, quantity, description, price, supplierId], (err) => {
         if (err) {
             console.error('Error adding stock:', err);
             return res.status(500).send('Error adding stock item');
