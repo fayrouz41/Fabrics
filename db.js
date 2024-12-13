@@ -1,15 +1,6 @@
 const sqlite = require('sqlite3');
 const db = new sqlite.Database('dbtables.db');
-const createUserTable = `CREATE TABLE IF NOT EXISTS USER (
-ID INTEGER PRIMARY KEY AUTOINCREMENT,
-NAME TEXT NOT NULL,
-EMAIL TEXT UNIQUE NOT NULL,
-PASSWORD TEXT NOT NULL,
-ISADMIN INT NOT NULL CHECK (ISADMIN = 1 OR ISADMIN = 0)
-)`;
 
-const insertAdminUser = `INSERT OR IGNORE INTO USER (NAME, EMAIL, PASSWORD, ISADMIN) 
-VALUES ('admin', 'fayrouz@gmail.com', 'Fayrouz', 1)`;
 
 const createSupplierTable = `CREATE TABLE IF NOT EXISTS SUPPLIER (
 ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +18,6 @@ PASSWORD TEXT NOT NULL,
 CONTACT_INFO TEXT NOT NULL
 )`;
 
-
 const createStockTable = `CREATE TABLE IF NOT EXISTS STOCK (
 ID INTEGER PRIMARY KEY AUTOINCREMENT,
 NAME TEXT NOT NULL,
@@ -40,12 +30,12 @@ FOREIGN KEY (SUPPLIER_ID) REFERENCES SUPPLIER(ID)
 
 const createCartTable = `CREATE TABLE IF NOT EXISTS CART (
 ID INTEGER PRIMARY KEY AUTOINCREMENT,
-PRODUCT_ID INT NOT NULL,
+STOCK_ID INT NOT NULL,
 MANUFACTURER_ID INT NOT NULL,
 QUANTITY INT NOT NULL,
 ORDER_DATE TEXT NOT NULL,
-FOREIGN KEY (PRODUCT_ID) REFERENCES PRODUCT(ID),
+FOREIGN KEY (STOCK_ID) REFERENCES STOCK(ID),
 FOREIGN KEY (MANUFACTURER_ID) REFERENCES MANUFACTURER(ID)
 )`;
 
-module.exports = { db, createUserTable, insertAdminUser, createSupplierTable, createManufacturerTable, createStockTable, createCartTable };
+module.exports = { db, createSupplierTable, createManufacturerTable, createStockTable, createCartTable };
