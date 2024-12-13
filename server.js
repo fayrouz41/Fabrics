@@ -63,22 +63,25 @@ server.post('/admin/login', (req, res) => {
 
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'strict',
+                sameSite: 'none',
                 secure: true, 
                 expiresIn: '1h' 
             });
     
             return res.status(200).json({ id: 1, role: 'admin' });
          });
-        } else {
-            res.status(401).send('Invalid credentials');  
+    
     } 
         
 });
 
 server.post('/supplier/login', (req,res) => {   
-    const email = req.body.email;
-    const password = req.body.password;
+    console.log('Raw body:', req.body);
+    const {email, password} = req.body;
+
+    if (!email || !password ) {
+        return res.status(400).send('All fields are required');
+    }
     db.get(`SELECT * FROM SUPPLIER WHERE EMAIL=?`, [email], (err, row) => {
         if (err) {
             return res.status(500).send('error fetching supplier');
@@ -97,7 +100,7 @@ server.post('/supplier/login', (req,res) => {
 
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'strict',
+                sameSite: 'none',
                 secure: true,
                 expiresIn: '1h'
             });
@@ -147,22 +150,42 @@ server.get('/stock', verifyRole(['admin']), (req, res) => {
 });
 
 server.post('/supplier/register', (req, res) => {
-    const name = req.body.name;
-    const email = req.body.email;
-    const password = req.body.password;
+    const { name, email, password, contact_info } = req.body;
 
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
+    if (!name || !email || !password || !contact_info) {
+        return res.status(400).send('All fields are required');
+    }
+
+    db.get(`SELECT EMAIL FROM SUPPLIER WHERE EMAIL = ?`, [email], (err, row) => {
         if (err) {
-            return res.status(500).send('error hashing password');
+            console.error('Database error:', err);
+            return res.status(500).send('Database error');
         }
-        db.run(`INSERT INTO SUPPLIER (NAME, EMAIL, PASSWORD, ISADMIN) VALUES (?, ?, ?, ?)`, [name, email, hashedPassword, 0], (err) => {
+        if (row) {
+            return res.status(400).send('Email already in use');
+        }
+
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
             if (err) {
-                return res.status(401).send(err);
+                console.error('Error hashing password:', err);
+                return res.status(500).send('Error hashing password');
             }
-            return res.status(200).send('Registration successful');
+
+            db.run(
+                `INSERT INTO SUPPLIER (NAME, EMAIL, PASSWORD, CONTACT_INFO) VALUES (?, ?, ?, ?)`,
+                [name, email, hashedPassword, contact_info],
+                (err) => {
+                    if (err) {
+                        console.error('Error inserting supplier:', err);
+                        return res.status(500).send('Database constraint violation');
+                    }
+                    return res.status(201).send('Registration successful');
+                }
+            );
         });
     });
 });
+
 
 // Manufacturer registration
 server.post('/manufacturer/register', (req, res) => {
