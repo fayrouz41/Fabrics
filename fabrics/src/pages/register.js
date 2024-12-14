@@ -9,7 +9,7 @@ const RegistrationPage = () => {
         email: '',
         password: '',
         contact_info: '',
-        userType: 'manufacturer', // Default to manufacturer
+        userType: 'manufacturer', 
     });
     const [errorMessage, setErrorMessage] = useState('');
     const [loading, setLoading] = useState(false);
@@ -54,11 +54,11 @@ const RegistrationPage = () => {
                     email: '',
                     password: '',
                     contact_info: '',
-                    userType: 'manufacturer', // Reset to manufacturer by default
+                    userType: 'manufacturer',
                 });
             }
         } catch (error) {
-            console.error('Error during registration:', error);  // Log the error details
+            console.error('Error during registration:', error);  
             setErrorMessage(error.response?.data || 'An error occurred. Please try again.');
                 
         } finally {

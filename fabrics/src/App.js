@@ -1,40 +1,51 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Navbar from './components/navbar'; // Import Navbar component
-import Home from './pages/home'; // Import Home component
-import AddStock from './pages/addstock'; // Import AddStock component
-import Cart from './components/cart'; // Import Cart component
-import RegistrationPage from './pages/register'; // Import Register component
-import LoginPage from './pages/login'; // Import Login component
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import Navbar from './components/navbar'; 
+import Home from './pages/home'; 
+import AddStock from './pages/addstock'; 
+import Cart from './components/cart';
+import RegistrationPage from './pages/register'; 
+import LoginPage from './pages/login'; 
 
 function App() {
   return (
     <Router>
       <div className="App">
-        {/* Always display Navbar except for /register and /login */}
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegistrationPage />} />
+
+         
           <Route
-            path="*"
+            path="/home"
             element={
-              window.location.pathname !== '/register' && window.location.pathname !== '/login' ? (
-                <>
-                  <Navbar />
-                  <Routes>
-                    <Route path="/home" element={<Home />} />
-                    <Route path="/add-stock" element={<AddStock />} />
-                    <Route path="/cart" element={<Cart />} />
-                  </Routes>
-                </>
-              ) : (
-                <>
-                  <Routes>
-                    <Route path="/register" element={<RegistrationPage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                  </Routes>
-                </>
-              )
+              <>
+                <Navbar />
+                <Home />
+              </>
             }
           />
+          <Route
+            path="/add-stock"
+            element={
+              <>
+                <Navbar />
+                <AddStock />
+              </>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <>
+                <Navbar />
+                <Cart />
+              </>
+            }
+          />
+
+          
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
     </Router>

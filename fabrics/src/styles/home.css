@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     margin: 0;
-    padding: 70px 0 0; /* Account for the fixed navbar */
+    padding: 70px 0 0; 
     background-color: #f8f1e5;
     color: #333;
   }

@@ -1,4 +1,4 @@
-/* General Styles */
+
 body {
     font-family: 'Arial', sans-serif;
     background: url('https://cdn.shopify.com/s/files/1/0768/8227/files/creative_02_1024x1024.jpg?v=1650619673') no-repeat center center fixed;
@@ -19,7 +19,6 @@ h2 {
     color: #5c3d2e;
 }
 
-/* Container Styling */
 .login-container {
     background: rgba(240, 220, 210, 0.9);
     border-radius: 10px;
@@ -30,7 +29,6 @@ h2 {
     backdrop-filter: blur(5px);
 }
 
-/* Form Styles */
 .login-form {
     display: flex;
     flex-direction: column;
@@ -66,7 +64,6 @@ input[type="password"]:focus {
     background: rgba(255, 245, 235, 1);
 }
 
-/* Radio Buttons */
 .user-type-group {
     display: flex;
     justify-content: space-around;
@@ -82,7 +79,6 @@ label {
     align-items: center;
 }
 
-/* Button Styles */
 button {
     padding: 10px;
     font-size: 16px;
@@ -104,7 +100,6 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Error Message */
 .error-message {
     color: #d9534f;
     background: rgba(240, 220, 210, 0.8);
