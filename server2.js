@@ -11,7 +11,8 @@ const port = 3999;
 const secret_key = 'hjgsdiuwesdhudwejdhdfha';
 
 server.use(cors({
-    origin: "http://localhost:3999",
+    origin: "http://localhost:3000",
+    methods: ['GET','POST', 'DELETE'],
     credentials: true
 }));
 
@@ -48,15 +49,20 @@ const adminPASSWORD = bcrypt.hashSync('Fayrouz', 10);
 
 // Admin login
 server.post('/admin/login', (req, res) => {
-    const { EMAIL, PASSWORD } = req.body;
-    if (EMAIL === adminEMAIL) {
-        bcrypt.compare(PASSWORD, adminPASSWORD, (err, isMatch) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json('Email and password are required.');
+    }
+
+    if (email === adminEMAIL) {
+        bcrypt.compare(password, adminPASSWORD, (err, isMatch) => {
             if (err) {
                 console.error('Error comparing password:', err);
-                return res.status(500).send('Error comparing password');
+                return res.status(500).send('Error comparing password.');
             }
             if (!isMatch) {
-                return res.status(401).send('Invalid credentials');
+                return res.status(401).send('Invalid credentials.');
             }
 
             const token = generateToken(1, 'admin');
@@ -65,13 +71,16 @@ server.post('/admin/login', (req, res) => {
                 httpOnly: true,
                 sameSite: 'none',
                 secure: process.env.NODE_ENV === 'production',
-                expiresIn: '1h'
+                maxAge: 3600000, // 1 hour
             });
 
             return res.status(200).json({ id: 1, role: 'admin' });
         });
+    } else {
+        return res.status(401).json('Invalid credentials.');
     }
 });
+
 
 // Supplier login
 server.post('/supplier/login', (req, res) => {
@@ -225,9 +234,15 @@ server.post('/manufacturer/register', (req, res) => {
     });
 });
 
-// View all stock
-server.get('/stock', verifyRole(['admin']), (req, res) => {
-    const query = `SELECT * FROM STOCK`;
+// View all stock or latest stock
+server.get('/stock', (req, res) => {
+    const { limit } = req.query; 
+    let query = `SELECT * FROM STOCK ORDER BY ID DESC`; 
+
+    if (limit) {
+        query += ` LIMIT ${parseInt(limit, 10)}`; 
+    }
+
     db.all(query, (err, rows) => {
         if (err) {
             console.error('Error fetching stock:', err);
@@ -236,6 +251,7 @@ server.get('/stock', verifyRole(['admin']), (req, res) => {
         return res.json(rows);
     });
 });
+
 
 // Search for stock based on filters
 server.get('/stock/search', (req, res) => {
@@ -267,52 +283,6 @@ server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
             return res.status(500).send('Error adding stock item');
         }
         return res.send('Stock item added successfully');
-    });
-});
-
-// Latest added stock
-server.get('/stock', (req, res) => {
-    const limit = parseInt(req.query.limit, 10) || 10;
-
-    const query = `SELECT * FROM STOCK ORDER BY ID DESC LIMIT ?`;
-    db.all(query, [limit], (err, rows) => {
-        if (err) {
-            console.error('Error fetching stock:', err);
-            return res.status(500).send('Error fetching stock');
-        }
-        return res.json(rows);
-    });
-});
-
-// Latest suppliers with their stock
-server.get('/suppliers/latest', (req, res) => {
-    const limit = parseInt(req.query.limit, 10) || 5;
-
-    const supplierQuery = `SELECT * FROM SUPPLIER ORDER BY ID DESC LIMIT ?`;
-
-    db.all(supplierQuery, [limit], (err, suppliers) => {
-        if (err) {
-            console.error('Error fetching suppliers:', err);
-            return res.status(500).send('Error fetching suppliers');
-        }
-
-        const supplierIds = suppliers.map(s => s.ID);
-        if (supplierIds.length === 0) return res.json([]);
-
-        const stockQuery = `SELECT * FROM STOCK WHERE SUPPLIER_ID IN (${supplierIds.map(() => '?').join(',')})`;
-        db.all(stockQuery, supplierIds, (err, stock) => {
-            if (err) {
-                console.error('Error fetching stock for suppliers:', err);
-                return res.status(500).send('Error fetching stock');
-            }
-
-            const supplierWithStock = suppliers.map(supplier => ({
-                ...supplier,
-                stock: stock.filter(item => item.SUPPLIER_ID === supplier.ID),
-            }));
-
-            res.json(supplierWithStock);
-        });
     });
 });
 
