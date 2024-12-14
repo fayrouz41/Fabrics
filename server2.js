@@ -270,6 +270,52 @@ server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
     });
 });
 
+// Latest added stock
+server.get('/stock', (req, res) => {
+    const limit = parseInt(req.query.limit, 10) || 10;
+
+    const query = `SELECT * FROM STOCK ORDER BY ID DESC LIMIT ?`;
+    db.all(query, [limit], (err, rows) => {
+        if (err) {
+            console.error('Error fetching stock:', err);
+            return res.status(500).send('Error fetching stock');
+        }
+        return res.json(rows);
+    });
+});
+
+// Latest suppliers with their stock
+server.get('/suppliers/latest', (req, res) => {
+    const limit = parseInt(req.query.limit, 10) || 5;
+
+    const supplierQuery = `SELECT * FROM SUPPLIER ORDER BY ID DESC LIMIT ?`;
+
+    db.all(supplierQuery, [limit], (err, suppliers) => {
+        if (err) {
+            console.error('Error fetching suppliers:', err);
+            return res.status(500).send('Error fetching suppliers');
+        }
+
+        const supplierIds = suppliers.map(s => s.ID);
+        if (supplierIds.length === 0) return res.json([]);
+
+        const stockQuery = `SELECT * FROM STOCK WHERE SUPPLIER_ID IN (${supplierIds.map(() => '?').join(',')})`;
+        db.all(stockQuery, supplierIds, (err, stock) => {
+            if (err) {
+                console.error('Error fetching stock for suppliers:', err);
+                return res.status(500).send('Error fetching stock');
+            }
+
+            const supplierWithStock = suppliers.map(supplier => ({
+                ...supplier,
+                stock: stock.filter(item => item.SUPPLIER_ID === supplier.ID),
+            }));
+
+            res.json(supplierWithStock);
+        });
+    });
+});
+
 // Create a cart
 server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
     const { stockId, manufacturerId, quantity } = req.body;
