@@ -1,32 +1,33 @@
 /* General Styles */
 body {
     font-family: 'Arial', sans-serif;
-    background: linear-gradient(to right, #6a11cb, #2575fc);
+    background: url('https://cdn.shopify.com/s/files/1/0768/8227/files/creative_02_1024x1024.jpg?v=1650619673') no-repeat center center fixed;
+    background-size: cover;
     margin: 0;
     padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
-    color: #fff;
+    color: #5c3d2e;
 }
 
 h2 {
     text-align: center;
     margin-bottom: 20px;
     font-size: 24px;
-    color: #fff;
+    color: #5c3d2e;
 }
 
 /* Container Styling */
 .login-container {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(240, 220, 210, 0.9);
     border-radius: 10px;
     padding: 30px;
     width: 100%;
     max-width: 400px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(5px);
 }
 
 /* Form Styles */
@@ -44,7 +45,7 @@ h2 {
 label {
     margin-bottom: 8px;
     font-size: 14px;
-    color: #ddd;
+    color: #5c3d2e;
 }
 
 input[type="email"],
@@ -54,15 +55,15 @@ input[type="password"] {
     border: none;
     border-radius: 5px;
     outline: none;
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 245, 235, 0.8);
+    color: #5c3d2e;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
     transition: background 0.3s;
 }
 
 input[type="email"]:focus,
 input[type="password"]:focus {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 245, 235, 1);
 }
 
 /* Radio Buttons */
@@ -87,14 +88,14 @@ button {
     font-size: 16px;
     border: none;
     border-radius: 5px;
-    background-color: #6a11cb;
+    background-color: #b08968;
     color: #fff;
     cursor: pointer;
     transition: background-color 0.3s, transform 0.2s;
 }
 
 button:hover {
-    background-color: #2575fc;
+    background-color: #8c6448;
     transform: scale(1.05);
 }
 
@@ -105,11 +106,30 @@ button:disabled {
 
 /* Error Message */
 .error-message {
-    color: #f44336;
-    background: rgba(255, 255, 255, 0.2);
+    color: #d9534f;
+    background: rgba(240, 220, 210, 0.8);
     padding: 10px;
     border-radius: 5px;
     margin-bottom: 20px;
     text-align: center;
     font-size: 14px;
 }
+
+.navigation-link {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 14px;
+    color: #5c3d2e;
+}
+
+.navigation-link a {
+    color: #8c6448;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s;
+}
+
+.navigation-link a:hover {
+    color: #b08968;
+}
+

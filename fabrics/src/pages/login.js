@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import '../styles/login.css';
 
 const LoginPage = () => {
     const [formData, setFormData] = useState({
         email: '',
         password: '',
-        userType: 'manufacturer', // Default to manufacturer
+        userType: 'manufacturer', 
     });
     const [errorMessage, setErrorMessage] = useState('');
     const [loading, setLoading] = useState(false);
@@ -47,13 +48,13 @@ const LoginPage = () => {
                     password: formData.password,
                 },
                 {
-                    withCredentials: true, // Send cookies to backend
+                    withCredentials: true,
                 }
             );
     
             if (response.status === 200) {
                 alert(`${formData.userType} login successful!`);
-                // Add redirection logic if needed
+                
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -125,11 +126,15 @@ const LoginPage = () => {
                         Supplier
                     </label>
                 </div>
-
                 {errorMessage && <div className="error-message">{errorMessage}</div>}
                 <button type="submit" disabled={loading}>
                     {loading ? 'Logging in...' : 'Login'}
                 </button>
+
+                <p className="navigation-link">
+                    Don't have an account? <Link to="/register">Register here</Link>
+                 </p>
+
             </form>
         </div>
     );

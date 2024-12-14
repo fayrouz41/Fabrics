@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import '../styles/register.css';
 
 const RegistrationPage = () => {
@@ -143,6 +144,10 @@ const RegistrationPage = () => {
                 <button type="submit" disabled={loading}>
                     {loading ? 'Registering...' : 'Register'}
                 </button>
+                
+                <p className="navigation-link">
+                    Already have an account? <Link to="/login">Login here</Link>
+                 </p>
             </form>
         </div>
     );
