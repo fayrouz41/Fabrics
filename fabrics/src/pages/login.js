@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import '../styles/login.css';
 
 const LoginPage = () => {
@@ -11,6 +11,7 @@ const LoginPage = () => {
     });
     const [errorMessage, setErrorMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate(); // React Router hook for navigation
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -54,7 +55,7 @@ const LoginPage = () => {
     
             if (response.status === 200) {
                 alert(`${formData.userType} login successful!`);
-                
+                navigate('/home'); // Redirect to home page
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -134,7 +135,6 @@ const LoginPage = () => {
                 <p className="navigation-link">
                     Don't have an account? <Link to="/register">Register here</Link>
                  </p>
-
             </form>
         </div>
     );
