@@ -69,9 +69,9 @@ server.post('/admin/login', (req, res) => {
 
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'none',
+                sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
-                maxAge: 3600000, // 1 hour
+                 expiresIn: '1h'
             });
 
             return res.status(200).json({ id: 1, role: 'admin' });
@@ -81,38 +81,6 @@ server.post('/admin/login', (req, res) => {
     }
 });
 
-
-
-
-// const adminEMAIL = 'fayrouz@gmail.com';
-// const adminPASSWORD = bcrypt.hashSync('Fayrouz', 10);
-
-// // Admin login
-// server.post('/admin/login', (req, res) => {
-//     const { EMAIL, PASSWORD } = req.body;
-//     if (EMAIL === adminEMAIL) {
-//         bcrypt.compare(PASSWORD, adminPASSWORD, (err, isMatch) => {
-//             if (err) {
-//                 console.error('Error comparing password:', err);
-//                 return res.status(500).send('Error comparing password');
-//             }
-//             if (!isMatch) {
-//                 return res.status(401).send('Invalid credentials');
-//             }
-
-//             const token = generateToken(1, 'admin');
-
-//             res.cookie('authToken', token, {
-//                 httpOnly: true,
-//                 sameSite: 'none',
-//                 secure: process.env.NODE_ENV === 'production',
-//                 expiresIn: '1h'
-//             });
-
-//             return res.status(200).json({ id: 1, role: 'admin' });
-//         });
-//     }
-// });
 
 // Supplier login
 server.post('/supplier/login', (req, res) => {
@@ -145,7 +113,7 @@ server.post('/supplier/login', (req, res) => {
 
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'none',
+                sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
                 expiresIn: '1h'
             });
@@ -180,7 +148,7 @@ server.post('/manufacturer/login', (req, res) => {
             const token = generateToken(row.ID, 'manufacturer');
             res.cookie('authToken', token, {
                 httpOnly: true,
-                sameSite: 'none',
+                sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
                 expiresIn: '1h'
             });
@@ -266,17 +234,76 @@ server.post('/manufacturer/register', (req, res) => {
     });
 });
 
-// View all stock
-server.get('/stock', verifyRole(['admin']), (req, res) => {
-    const query = `SELECT * FROM STOCK`;
-    db.all(query, (err, rows) => {
-        if (err) {
-            console.error('Error fetching stock:', err);
-            return res.status(500).send('Error fetching stock');
-        }
-        return res.json(rows);
+
+server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+    const { stockId, manufacturerId, quantity } = req.body;
+  
+    if (!stockId || !manufacturerId || !quantity) {
+      return res.status(400).send('Missing required fields');
+    }
+  
+    const orderDate = new Date().toISOString().split('T')[0];
+    const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
+  
+    db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
+      if (err) {
+        console.error('Error adding to cart:', err.message);
+        return res.status(500).send('Error adding to cart');
+      }
+      res.send('Item added to cart successfully');
     });
-});
+  });
+
+  server.get('/stock', (req, res) => {
+    const limit = parseInt(req.query.limit) || 10; 
+    const query = `SELECT * FROM STOCK ORDER BY ID DESC LIMIT ?`;
+  
+    db.all(query, [limit], (err, rows) => {
+      if (err) {
+        console.error('Error fetching stock:', err.message);
+        return res.status(500).send('Error fetching stock');
+      }
+      res.json(rows);
+    });
+  });
+  
+  
+
+  server.get('/stock/categories', (req, res) => {
+    const query = `SELECT DISTINCT CATEGORY FROM STOCK`;
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        console.error('Error fetching categories:', err.message);
+        return res.status(500).send('Error fetching categories');
+      }
+      const categories = rows.map((row) => row.CATEGORY);
+      res.json(categories);
+    });
+  });
+  
+  
+
+  server.get('/stock/category/:category', (req, res) => {
+    const { category } = req.params;
+  
+    if (!category) {
+      return res.status(400).send('Category is required');
+    }
+  
+    const query = `SELECT * FROM STOCK WHERE CATEGORY = ?`;
+    db.all(query, [category], (err, rows) => {
+      if (err) {
+        console.error('Error fetching products by category:', err.message);
+        return res.status(500).send('Error fetching products by category');
+      }
+      if (rows.length === 0) {
+        return res.status(404).send('No products found for this category');
+      }
+      res.json(rows);
+    });
+  });
+  
+  
 
 // Search for stock based on filters
 server.get('/stock/search', (req, res) => {
@@ -296,13 +323,13 @@ server.get('/stock/search', (req, res) => {
 
 // Admin or Supplier can add stock
 server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
-    const { name, category, quantity, description, price, supplierId } = req.body;
-    if (!name || !category || !quantity || !price || !supplierId) {
+    const { name, category, quantity, description, photourl, price, supplierId } = req.body;
+    if (!name || !category || !quantity || !photourl|| !price || !supplierId) {
         return res.status(400).send('Missing required fields');
     }
 
-    const query = `INSERT INTO STOCK (NAME, CATEGORY, QUANTITY, DESCRIPTION, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?, ?)`;
-    db.run(query, [name, category, quantity, description, price, supplierId], (err) => {
+    const query = `INSERT INTO STOCK (NAME, CATEGORY, QUANTITY, DESCRIPTION, PHOTOURL, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    db.run(query, [name, category, quantity, description, photourl, price, supplierId], (err) => {
         if (err) {
             console.error('Error adding stock:', err);
             return res.status(500).send('Error adding stock item');
@@ -312,24 +339,26 @@ server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
 });
 
 // Create a cart
-server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
-    const { stockId, manufacturerId, quantity } = req.body;
+// server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+//     const { stockId, manufacturerId, quantity } = req.body;
+  
 
-    if (!stockId || !manufacturerId || !quantity) {
-        return res.status(400).send('Missing required fields');
-    }
-
-    const orderDate = new Date().toISOString().split('T')[0];
-
-    const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
-    db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).send('Error adding to cart');
-        }
-        return res.send('Stock added to cart');
-    });
-});
+//     if (!stockId || !manufacturerId || !quantity || quantity <= 0) {
+//       return res.status(400).send('Missing or invalid fields');
+//     }
+  
+//     const orderDate = new Date().toISOString().split('T')[0];
+//     const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
+  
+//     db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
+//       if (err) {
+//         console.error('Error adding to cart:', err.message);
+//         return res.status(500).send('Error adding to cart');
+//       }
+//       res.send('Item added to cart successfully');
+//     });
+//   });
+  
 
 // Checkout
 server.post('/checkout', verifyRole(['supplier', 'manufacturer']), (req, res) => {

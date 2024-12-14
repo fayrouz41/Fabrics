@@ -9,7 +9,8 @@ const AddStock = () => {
     category: '',
     quantity: '',
     description: '',
-    price: '',
+    photourl: '',
+    price: ''
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -28,7 +29,7 @@ const AddStock = () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!formData.name || !formData.category || !formData.quantity || !formData.price) {
+    if (!formData.name || !formData.category || !formData.quantity || !formData.photourl || !formData.price) {
       setErrorMessage('All fields except description are required!');
       return;
     }
@@ -39,15 +40,14 @@ const AddStock = () => {
         {
           ...formData,
           quantity: parseInt(formData.quantity, 10),
-          price: parseFloat(formData.price),
-          supplierId: 1,
+          price: parseFloat(formData.price)
         },
         { withCredentials: true }
       );
 
       if (response.status === 200) {
         setSuccessMessage('Stock added successfully!');
-        setFormData({ name: '', category: '', quantity: '', description: '', price: '' });
+        setFormData({ name: '', category: '', quantity: '', description: '', photourl: '', price: '' });
         setTimeout(() => navigate('/home'), 2000);
       }
     } catch (error) {
@@ -102,6 +102,16 @@ const AddStock = () => {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="photourl">PhotoURL</label>
+              <textarea
+                id="photourl"
+                name="photourl"
+                value={formData.photourl}
+                onChange={handleChange}
+                required
               />
             </div>
             <div className="form-group">

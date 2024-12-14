@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Navbar from './components/navbar'; 
 import Home from './pages/home'; 
 import AddStock from './pages/addstock'; 
+import CategoryPage from './pages/categoryPage';
 import Cart from './components/cart';
 import RegistrationPage from './pages/register'; 
 import LoginPage from './pages/login'; 
@@ -34,6 +35,17 @@ function App() {
               </>
             }
           />
+
+          <Route 
+            path="/category/:category" 
+            element={
+              <>
+              <Navbar />
+              <CategoryPage />
+              </>
+            }
+          />
+          
           <Route
             path="/cart"
             element={
