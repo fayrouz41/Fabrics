@@ -269,6 +269,31 @@ server.get('/stock/search', (req, res) => {
     });
 });
 
+server.get('/stock/categories', (req, res) => {
+    const query = `SELECT DISTINCT CATEGORY FROM STOCK`;
+    db.all(query, (err, rows) => {
+      if (err) {
+        console.error('Error fetching categories:', err);
+        return res.status(500).send('Error fetching categories');
+      }
+      const categories = rows.map((row) => row.CATEGORY);
+      return res.json(categories);
+    });
+  });
+
+  server.get('/stock/category/:category', (req, res) => {
+    const { category } = req.params;
+    const query = `SELECT * FROM STOCK WHERE CATEGORY = ?`;
+    db.all(query, [category], (err, rows) => {
+      if (err) {
+        console.error('Error fetching products:', err);
+        return res.status(500).send('Error fetching products');
+      }
+      return res.json(rows);
+    });
+  });
+  
+
 // Admin or Supplier can add stock
 server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
     const { name, category, quantity, description, price, supplierId } = req.body;
