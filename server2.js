@@ -1,0 +1,482 @@
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const db_access = require('./db.js');
+const db = db_access.db;
+const cookieParser = require('cookie-parser');
+
+const server = express();
+const port = 3999;
+const secret_key = 'hjgsdiuwesdhudwejdhdfha';
+
+server.use(cors({
+    origin: "http://localhost:3000",
+    methods: ['GET','POST', 'DELETE'],
+    credentials: true
+}));
+
+server.use(express.json());
+server.use(cookieParser());
+
+server.get('/', (req, res) => {
+    res.send('Server is up and running!');
+});
+
+// Generate JWT token
+const generateToken = (id, role) => {
+    return jwt.sign({ id, role }, secret_key, { expiresIn: '1h' });
+}
+
+// Middleware to verify token and extract role
+const verifyRole = (requiredRoles) => (req, res, next) => {
+    const token = req.cookies.authToken;
+    if (!token) return res.status(401).send('Unauthorized: No token provided');
+
+    jwt.verify(token, secret_key, (err, decoded) => {
+        if (err) return res.status(403).send('Invalid or expired token');
+
+        req.userDetails = decoded;
+        if (!requiredRoles.includes(decoded.role)) {
+            return res.status(403).send('Forbidden: Insufficient permissions');
+        }
+        next();
+    });
+};
+
+const adminEMAIL = 'fayrouz@gmail.com';
+const adminPASSWORD = bcrypt.hashSync('Fayrouz', 10);
+
+// Admin login
+server.post('/admin/login', (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json('Email and password are required.');
+    }
+
+    if (email === adminEMAIL) {
+        bcrypt.compare(password, adminPASSWORD, (err, isMatch) => {
+            if (err) {
+                console.error('Error comparing password:', err);
+                return res.status(500).send('Error comparing password.');
+            }
+            if (!isMatch) {
+                return res.status(401).send('Invalid credentials.');
+            }
+
+            const token = generateToken(1, 'admin');
+
+            res.cookie('authToken', token, {
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                 expiresIn: '1h'
+            });
+
+            return res.status(200).json({ id: 1, role: 'admin' });
+        });
+    } else {
+        return res.status(401).json('Invalid credentials.');
+    }
+});
+
+
+// Supplier login
+server.post('/supplier/login', (req, res) => {
+    console.log('Raw body:', req.body);
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).send('All fields are required');
+    }
+
+    db.get(`SELECT * FROM SUPPLIER WHERE EMAIL=?`, [email], (err, row) => {
+        if (err) {
+            console.error('Database query error:', err);
+            return res.status(500).send('Error fetching supplier');
+        }
+        if (!row) {
+            return res.status(401).send('Invalid credentials');
+        }
+
+        bcrypt.compare(password, row.PASSWORD, (err, isMatch) => {
+            if (err) {
+                console.error('Error comparing password:', err);
+                return res.status(500).send('Error comparing password');
+            }
+            if (!isMatch) {
+                return res.status(401).send('Invalid credentials');
+            }
+
+            const token = generateToken(row.ID, 'supplier');
+
+            res.cookie('authToken', token, {
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                expiresIn: '1h'
+            });
+
+            return res.status(200).json({ id: row.ID, role: 'supplier' });
+        });
+    });
+});
+
+// Manufacturer login
+server.post('/manufacturer/login', (req, res) => {
+    const { email, password } = req.body;
+
+    db.get(`SELECT * FROM MANUFACTURER WHERE EMAIL=?`, [email], (err, row) => {
+        if (err) {
+            console.error('Database query error:', err);
+            return res.status(500).send('Error fetching manufacturer');
+        }
+        if (!row) {
+            return res.status(401).send('Invalid credentials');
+        }
+
+        bcrypt.compare(password, row.PASSWORD, (err, isMatch) => {
+            if (err) {
+                console.error('Error comparing password:', err);
+                return res.status(500).send('Error comparing password');
+            }
+            if (!isMatch) {
+                return res.status(401).send('Invalid credentials');
+            }
+
+            const token = generateToken(row.ID, 'manufacturer');
+            res.cookie('authToken', token, {
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                expiresIn: '1h'
+            });
+
+            return res.status(200).json({ id: row.ID, role: 'manufacturer' });
+        });
+    });
+});
+
+// Supplier registration
+server.post('/supplier/register', (req, res) => {
+    const { name, email, password, contact_info } = req.body;
+
+    if (!name || !email || !password || !contact_info) {
+        return res.status(400).send('All fields are required');
+    }
+
+    db.get(`SELECT EMAIL FROM SUPPLIER WHERE EMAIL = ?`, [email], (err, row) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).send('Database error');
+        }
+        if (row) {
+            return res.status(400).send('Email already in use');
+        }
+
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
+            if (err) {
+                console.error('Error hashing password:', err);
+                return res.status(500).send('Error hashing password');
+            }
+
+            db.run(
+                `INSERT INTO SUPPLIER (NAME, EMAIL, PASSWORD, CONTACT_INFO) VALUES (?, ?, ?, ?)`,
+                [name, email, hashedPassword, contact_info],
+                (err) => {
+                    if (err) {
+                        console.error('Error inserting supplier:', err);
+                        return res.status(500).send('Database constraint violation');
+                    }
+                    return res.status(201).send('Registration successful');
+                }
+            );
+        });
+    });
+});
+
+// Manufacturer registration
+server.post('/manufacturer/register', (req, res) => {
+    const { name, email, password, contact_info } = req.body;
+
+    if (!name || !email || !password || !contact_info) {
+        return res.status(400).send('All fields are required');
+    }
+
+    db.get(`SELECT EMAIL FROM MANUFACTURER WHERE EMAIL = ?`, [email], (err, row) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).send('Database error');
+        }
+        if (row) {
+            return res.status(400).send('Email already in use');
+        }
+
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
+            if (err) {
+                console.error('Error hashing password:', err);
+                return res.status(500).send('Error hashing password');
+            }
+
+            db.run(
+                `INSERT INTO MANUFACTURER (NAME, EMAIL, PASSWORD, CONTACT_INFO) VALUES (?, ?, ?, ?)`,
+                [name, email, hashedPassword, contact_info],
+                (err) => {
+                    if (err) {
+                        console.error('Error inserting manufacturer:', err);
+                        return res.status(500).send('Database constraint violation');
+                    }
+                    return res.status(201).send('Registration successful');
+                }
+            );
+        });
+    });
+});
+
+
+// Fetch cart items
+server.get('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+    const query = `
+      SELECT 
+        CART.STOCK_ID, 
+        CART.QUANTITY, 
+        STOCK.NAME, 
+        STOCK.CATEGORY, 
+        STOCK.PRICE 
+      FROM CART
+      INNER JOIN STOCK ON CART.STOCK_ID = STOCK.ID
+      WHERE CART.MANUFACTURER_ID = ?`; // Replace with the appropriate user identification
+  
+    const manufacturerId = req.userDetails.id; // Ensure this value is being set properly in verifyRole middleware
+  
+    db.all(query, [manufacturerId], (err, rows) => {
+      if (err) {
+        console.error('Error fetching cart items:', err.message);
+        return res.status(500).send('Error fetching cart items');
+      }
+      res.json(rows);
+    });
+  });
+  
+  // Delete an item from the cart
+server.delete('/cart/delete', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+    const { stockId } = req.body;
+    const manufacturerId = req.userDetails.id; // Assuming cart is tied to the logged-in user
+  
+    if (!stockId) {
+      return res.status(400).send('Stock ID is required to delete an item from the cart');
+    }
+  
+    const query = `DELETE FROM CART WHERE STOCK_ID = ? AND MANUFACTURER_ID = ?`;
+  
+    db.run(query, [stockId, manufacturerId], (err) => {
+      if (err) {
+        console.error('Error deleting item from cart:', err.message);
+        return res.status(500).send('Error deleting item from cart');
+      }
+      res.send('Item successfully deleted from the cart');
+    });
+  });
+  
+
+  // Add item to cart
+server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+    const { stockId, manufacturerId, quantity } = req.body;
+  
+    if (!stockId || !manufacturerId || !quantity || quantity <= 0) {
+      return res.status(400).send('Missing or invalid fields');
+    }
+  
+    const orderDate = new Date().toISOString().split('T')[0];
+    const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
+  
+    db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
+      if (err) {
+        console.error('Error adding to cart:', err.message);
+        return res.status(500).send('Error adding to cart');
+      }
+      res.send('Item added to cart successfully');
+    });
+  });
+  
+  
+
+  server.get('/stock', (req, res) => {
+    const limit = parseInt(req.query.limit) || 10; 
+    const query = `SELECT * FROM STOCK ORDER BY ID DESC LIMIT ?`;
+  
+    db.all(query, [limit], (err, rows) => {
+      if (err) {
+        console.error('Error fetching stock:', err.message);
+        return res.status(500).send('Error fetching stock');
+      }
+      res.json(rows);
+    });
+  });
+  
+  
+
+  server.get('/stock/categories', (req, res) => {
+    const query = `SELECT DISTINCT CATEGORY FROM STOCK`;
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        console.error('Error fetching categories:', err.message);
+        return res.status(500).send('Error fetching categories');
+      }
+      const categories = rows.map((row) => row.CATEGORY);
+      res.json(categories);
+    });
+  });
+  
+  
+
+  server.get('/stock/category/:category', (req, res) => {
+    const { category } = req.params;
+  
+    if (!category) {
+      return res.status(400).send('Category is required');
+    }
+  
+    const query = `SELECT * FROM STOCK WHERE CATEGORY = ?`;
+    db.all(query, [category], (err, rows) => {
+      if (err) {
+        console.error('Error fetching products by category:', err.message);
+        return res.status(500).send('Error fetching products by category');
+      }
+      if (rows.length === 0) {
+        return res.status(404).send('No products found for this category');
+      }
+      res.json(rows);
+    });
+  });
+  
+  
+
+// Search for stock based on filters
+server.get('/stock/search', (req, res) => {
+    let { name, category } = req.query;
+    let query = `SELECT * FROM STOCK WHERE 1=1`;
+    if (name) query += ` AND NAME LIKE '%${name}%'`;
+    if (category) query += ` AND CATEGORY LIKE '%${category}%'`;
+
+    db.all(query, (err, rows) => {
+        if (err) {
+            console.error('Error searching stock:', err);
+            return res.status(500).send('Error searching stock');
+        }
+        return res.json(rows);
+    });
+});
+
+// Admin or Supplier can add stock
+server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
+    const { name, category, quantity, description, photourl, price, supplierId } = req.body;
+    if (!name || !category || !quantity || !photourl|| !price || !supplierId) {
+        return res.status(400).send('Missing required fields');
+    }
+
+    const query = `INSERT INTO STOCK (NAME, CATEGORY, QUANTITY, DESCRIPTION, PHOTOURL, PRICE, SUPPLIER_ID) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    db.run(query, [name, category, quantity, description, photourl, price, supplierId], (err) => {
+        if (err) {
+            console.error('Error adding stock:', err);
+            return res.status(500).send('Error adding stock item');
+        }
+        return res.send('Stock item added successfully');
+    });
+});
+
+// Create a cart
+// server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+//     const { stockId, manufacturerId, quantity } = req.body;
+  
+
+//     if (!stockId || !manufacturerId || !quantity || quantity <= 0) {
+//       return res.status(400).send('Missing or invalid fields');
+//     }
+  
+//     const orderDate = new Date().toISOString().split('T')[0];
+//     const query = `INSERT INTO CART (STOCK_ID, MANUFACTURER_ID, QUANTITY, ORDER_DATE) VALUES (?, ?, ?, ?)`;
+  
+//     db.run(query, [stockId, manufacturerId, quantity, orderDate], (err) => {
+//       if (err) {
+//         console.error('Error adding to cart:', err.message);
+//         return res.status(500).send('Error adding to cart');
+//       }
+//       res.send('Item added to cart successfully');
+//     });
+//   });
+  
+
+// Checkout
+server.post('/checkout', verifyRole(['supplier', 'manufacturer']), (req, res) => {
+    const { totalPrice } = req.body;
+    const manufacturerId = req.userDetails.id; 
+    if (!manufacturerId || !totalPrice || totalPrice <= 0) {
+      return res.status(400).send('Invalid checkout details');
+    }
+  
+    const orderDate = new Date().toISOString().split('T')[0];
+  
+   
+    const query = `INSERT INTO ORDERS (MANUFACTURER_ID, TOTAL_PRICE, ORDER_DATE, STATUS) VALUES (?, ?, ?, ?)`;
+  
+    db.run(query, [manufacturerId, totalPrice, orderDate, 'Completed'], function (err) {
+      if (err) {
+        console.error('Error creating order:', err.message);
+        return res.status(500).send('Error processing checkout');
+      }
+  
+      const orderId = this.lastID;
+  
+      
+      const orderItemsQuery = `
+        INSERT INTO ORDER_ITEMS (ORDER_ID, STOCK_ID, QUANTITY)
+        SELECT ?, STOCK_ID, QUANTITY FROM CART WHERE MANUFACTURER_ID = ?
+      `;
+  
+      db.run(orderItemsQuery, [orderId, manufacturerId], (err) => {
+        if (err) {
+          console.error('Error adding items to order:', err.message);
+          return res.status(500).send('Error processing checkout');
+        }
+  
+       
+        const clearCartQuery = `DELETE FROM CART WHERE MANUFACTURER_ID = ?`;
+        db.run(clearCartQuery, [manufacturerId], (err) => {
+          if (err) {
+            console.error('Error clearing cart:', err.message);
+            return res.status(500).send('Error processing checkout');
+          }
+  
+          res.send('Checkout successful');
+        });
+      });
+    });
+  });
+  
+
+server.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+
+    db.serialize(() => {
+        db.run(db_access.createSupplierTable, (err) => {
+            if (err) console.log("Error creating supplier table: " + err);
+        });
+        db.run(db_access.createManufacturerTable, (err) => {
+            if (err) console.log("Error creating manufacturer table: " + err);
+        });
+        db.run(db_access.createStockTable, (err) => {
+            if (err) console.log("Error creating stock table: " + err);
+        });
+        db.run(db_access.createCartTable, (err) => {
+            if (err) console.log("Error creating cart table: " + err);
+        });
+        db.run(db_access.createOrdersTable, (err) => {
+            if (err) console.log("Error creating order table: " + err);
+        });
+        db.run(db_access.createOrderItemsTable, (err) => {
+            if (err) console.log("Error creating order table: " + err);
+        });
+    });
+});
