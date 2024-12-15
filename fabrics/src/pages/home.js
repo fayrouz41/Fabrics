@@ -24,12 +24,29 @@ function Home() {
       .catch((error) => console.error('Error fetching categories:', error));
   }, []);
 
+  // Add to Cart handler
+  const handleAddToCart = (stockId, quantity = 1) => {
+    axios
+      .post(
+        'http://localhost:3999/cart',
+        { stockId, quantity, manufacturerId: 1 }, // Assuming manufacturerId is 1 for testing
+        { withCredentials: true }
+      )
+      .then(() => {
+        alert('Item added to cart successfully!');
+      })
+      .catch((error) => {
+        console.error('Error adding to cart:', error.response?.data || error.message);
+        alert('Failed to add item to cart. Please try again.');
+      });
+  };
+
   return (
     <div className="main-content">
       {/* Header Section */}
       <header className="header">
         <h1>Welcome to Fabrics App</h1>
-        <p>Your connection hub for suppliers and manufacturers in the clothing industry.</p>
+        <p>A connection hub for suppliers and manufacturers in the clothing industry.</p>
       </header>
 
       {/* Categories Section */}
@@ -60,6 +77,10 @@ function Home() {
                 <h3>{item.NAME}</h3>
                 <p>Category: {item.CATEGORY}</p>
                 <p>Price: ${item.PRICE}</p>
+                {/* Add to Cart Button */}
+                <button onClick={() => handleAddToCart(item.ID)} className="add-to-cart-button">
+                  Add to Cart
+                </button>
               </div>
             ))
           ) : (

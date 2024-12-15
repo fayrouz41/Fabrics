@@ -7,6 +7,7 @@ import CategoryPage from './pages/categoryPage';
 import Cart from './components/cart';
 import RegistrationPage from './pages/register'; 
 import LoginPage from './pages/login'; 
+import CheckoutPage from './components/checkout';
 
 function App() {
   return (
@@ -52,6 +53,16 @@ function App() {
               <>
                 <Navbar />
                 <Cart />
+              </>
+            }
+          />
+
+          <Route
+            path="/checkout"
+            element={
+              <>
+                <Navbar />
+                <CheckoutPage />
               </>
             }
           />

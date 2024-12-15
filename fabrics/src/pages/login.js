@@ -11,7 +11,7 @@ const LoginPage = () => {
     });
     const [errorMessage, setErrorMessage] = useState('');
     const [loading, setLoading] = useState(false);
-    const navigate = useNavigate(); // React Router hook for navigation
+    const navigate = useNavigate(); 
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -33,7 +33,6 @@ const LoginPage = () => {
         setLoading(true);
         setErrorMessage('');
     
-        // Form validation
         if (!formData.email || !formData.password) {
             setErrorMessage('Both email and password are required!');
             setLoading(false);
@@ -55,7 +54,7 @@ const LoginPage = () => {
     
             if (response.status === 200) {
                 alert(`${formData.userType} login successful!`);
-                navigate('/home'); // Redirect to home page
+                navigate('/home'); 
             }
         } catch (error) {
             console.error('Login error:', error);

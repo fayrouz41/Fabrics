@@ -235,11 +235,57 @@ server.post('/manufacturer/register', (req, res) => {
 });
 
 
+// Fetch cart items
+server.get('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+    const query = `
+      SELECT 
+        CART.STOCK_ID, 
+        CART.QUANTITY, 
+        STOCK.NAME, 
+        STOCK.CATEGORY, 
+        STOCK.PRICE 
+      FROM CART
+      INNER JOIN STOCK ON CART.STOCK_ID = STOCK.ID
+      WHERE CART.MANUFACTURER_ID = ?`; // Replace with the appropriate user identification
+  
+    const manufacturerId = req.userDetails.id; // Ensure this value is being set properly in verifyRole middleware
+  
+    db.all(query, [manufacturerId], (err, rows) => {
+      if (err) {
+        console.error('Error fetching cart items:', err.message);
+        return res.status(500).send('Error fetching cart items');
+      }
+      res.json(rows);
+    });
+  });
+  
+  // Delete an item from the cart
+server.delete('/cart/delete', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
+    const { stockId } = req.body;
+    const manufacturerId = req.userDetails.id; // Assuming cart is tied to the logged-in user
+  
+    if (!stockId) {
+      return res.status(400).send('Stock ID is required to delete an item from the cart');
+    }
+  
+    const query = `DELETE FROM CART WHERE STOCK_ID = ? AND MANUFACTURER_ID = ?`;
+  
+    db.run(query, [stockId, manufacturerId], (err) => {
+      if (err) {
+        console.error('Error deleting item from cart:', err.message);
+        return res.status(500).send('Error deleting item from cart');
+      }
+      res.send('Item successfully deleted from the cart');
+    });
+  });
+  
+
+  // Add item to cart
 server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, res) => {
     const { stockId, manufacturerId, quantity } = req.body;
   
-    if (!stockId || !manufacturerId || !quantity) {
-      return res.status(400).send('Missing required fields');
+    if (!stockId || !manufacturerId || !quantity || quantity <= 0) {
+      return res.status(400).send('Missing or invalid fields');
     }
   
     const orderDate = new Date().toISOString().split('T')[0];
@@ -253,6 +299,8 @@ server.post('/cart', verifyRole(['admin', 'supplier', 'manufacturer']), (req, re
       res.send('Item added to cart successfully');
     });
   });
+  
+  
 
   server.get('/stock', (req, res) => {
     const limit = parseInt(req.query.limit) || 10; 
@@ -362,20 +410,51 @@ server.post('/stock/add', verifyRole(['admin', 'supplier']), (req, res) => {
 
 // Checkout
 server.post('/checkout', verifyRole(['supplier', 'manufacturer']), (req, res) => {
-    const { manufacturerId, totalPrice } = req.body;
-    if (!manufacturerId || !totalPrice) {
-        return res.status(400).send('Missing required fields');
+    const { totalPrice } = req.body;
+    const manufacturerId = req.userDetails.id; 
+    if (!manufacturerId || !totalPrice || totalPrice <= 0) {
+      return res.status(400).send('Invalid checkout details');
     }
-
-    const query = `UPDATE CART SET STATUS = 'completed' WHERE MANUFACTURER_ID = ?`;
-    db.run(query, [manufacturerId], (err) => {
+  
+    const orderDate = new Date().toISOString().split('T')[0];
+  
+   
+    const query = `INSERT INTO ORDERS (MANUFACTURER_ID, TOTAL_PRICE, ORDER_DATE, STATUS) VALUES (?, ?, ?, ?)`;
+  
+    db.run(query, [manufacturerId, totalPrice, orderDate, 'Completed'], function (err) {
+      if (err) {
+        console.error('Error creating order:', err.message);
+        return res.status(500).send('Error processing checkout');
+      }
+  
+      const orderId = this.lastID;
+  
+      
+      const orderItemsQuery = `
+        INSERT INTO ORDER_ITEMS (ORDER_ID, STOCK_ID, QUANTITY)
+        SELECT ?, STOCK_ID, QUANTITY FROM CART WHERE MANUFACTURER_ID = ?
+      `;
+  
+      db.run(orderItemsQuery, [orderId, manufacturerId], (err) => {
         if (err) {
-            console.error('Error completing checkout:', err);
-            return res.status(500).send('Error completing checkout');
+          console.error('Error adding items to order:', err.message);
+          return res.status(500).send('Error processing checkout');
         }
-        return res.send('Checkout completed');
+  
+       
+        const clearCartQuery = `DELETE FROM CART WHERE MANUFACTURER_ID = ?`;
+        db.run(clearCartQuery, [manufacturerId], (err) => {
+          if (err) {
+            console.error('Error clearing cart:', err.message);
+            return res.status(500).send('Error processing checkout');
+          }
+  
+          res.send('Checkout successful');
+        });
+      });
     });
-});
+  });
+  
 
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
